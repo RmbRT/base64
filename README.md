@@ -1,6 +1,6 @@
 # base64
 
-This project is a static, extremely lightweight C++ library that offers basic base64 encoding and decoding. It supports in-place encoding and decoding as well as helper functions that allow easier use. Helper functions and STL dependencies can be removed by defining `BASE64_NO_GIMMICS` before including the library. The comments are doxygen-compatible.
+This project is a static, extremely lightweight C++ library that offers basic base64 encoding and decoding. It supports in-place encoding and decoding as well as helper functions that allow easier use. Helper functions and STL dependencies can be removed by defining `BASE64_NO_GIMMICKS` before including the library. The comments are doxygen-compatible.
 
 ## Contents
 
