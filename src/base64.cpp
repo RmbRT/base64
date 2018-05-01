@@ -5,55 +5,77 @@
 
 namespace base64
 {
-	static std::uint8_t const table[64] = {
-		'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P',
-		'Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f',
-		'g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v',
-		'w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/'
-	}, padding = '=';
+	Configuration::Configuration(
+		char const * alphabet,
+		char padding)
+	{
+		assert(alphabet);
+
+		this->padding = padding;
+
+		// set all unused fields to invalid.
+		for(std::size_t i = 256; i--;)
+			reverse_table[i] = 255;
+
+		for(std::size_t i = 0; i < 64; i++)
+		{
+			table[i] = alphabet[i];
+			reverse_table[table[i]] = i;
+			assert(alphabet[i]);
+		}
+	}
+
+	Configuration const Configuration::default_configuration {
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		"abcdefghijklmnopqrstuvwxyz"
+		"0123456789+/",
+		'='
+	};
 
 	static inline void encode_triplet(
 		std::uint8_t const * read,
-		std::uint8_t * write)
+		std::uint8_t * write,
+		Configuration const& c)
 	{
 		// 2-7.
-		write[0] = table[read[0] >> 2];
+		write[0] = c.table[read[0] >> 2];
 		// 0-1, 4-7.
-		write[1] = table[std::uint8_t((read[0] & 3) << 4) | (read[1]>>4)];
+		write[1] = c.table[std::uint8_t((read[0] & 3) << 4) | (read[1]>>4)];
 		// 0-3, 6-7.
-		write[2] = table[((read[1] & 15) << 2) | (read[2]>>6)];
+		write[2] = c.table[((read[1] & 15) << 2) | (read[2]>>6)];
 		// 0-5.
-		write[3] = table[read[2] & 63];
+		write[3] = c.table[read[2] & 63];
 	}
 
 	static inline std::size_t encode_last_triplet(
 		std::uint8_t const * read,
 		std::uint8_t * write,
-		std::size_t rest)
+		std::size_t rest,
+		Configuration const& c)
 	{
 		if(!rest)
 			return 0;
 
 		// 0-5.
-		write[0] = table[read[0] >> 2];
+		write[0] = c.table[read[0] >> 2];
 
 		if(rest == 2)
 		{
 			// 6-7, 0-3.
-			write[1] = table[std::uint8_t((read[0] & 3) << 4) | (read[1]>>4)];
+			write[1] = c.table[std::uint8_t((read[0] & 3) << 4) | (read[1]>>4)];
 			// 4-7.
-			write[2] = table[(read[1] & 15) << 2];
+			write[2] = c.table[(read[1] & 15) << 2];
 		}
 		else
 		{
 			// 6-7.
-			write[1] = table[std::uint8_t((read[0] & 3) << 4) | (read[1]>>4)];
+			write[1] = c.table[std::uint8_t((read[0] & 3) << 4) | (read[1]>>4)];
 			// padding.
-			write[2] = padding;
+			write[2] = c.padding;
 		}
 
 		// padding.
-		write[3] = padding;
+		write[3] = c.padding;
 
 		return 4;
 	}
@@ -61,7 +83,8 @@ namespace base64
 	void * encode(
 		void const * input,
 		std::size_t size,
-		void * output)
+		void * output,
+		Configuration const& c)
 	{
 		assert(input != nullptr);
 		assert(output != nullptr);
@@ -72,18 +95,19 @@ namespace base64
 
 		while(triplets--)
 		{
-			encode_triplet(read, write);
+			encode_triplet(read, write, c);
 
 			read += 3;
 			write += 4;
 		}
 
-		return write + encode_last_triplet(read, write, size % 3);
+		return write + encode_last_triplet(read, write, size % 3, c);
 	}
 
 	void * encode_in_place(
 		void * input,
-		std::size_t size)
+		std::size_t size,
+		Configuration const& c)
 	{
 		assert(input != nullptr);
 
@@ -97,7 +121,7 @@ namespace base64
 		for(std::size_t i = 0; i < rest; i++)
 			triplet[i] = read[i];
 
-		void * const result = write + encode_last_triplet(read, write, rest);
+		void * const result = write + encode_last_triplet(read, write, rest, c);
 
 		std::size_t last_triplets;
 
@@ -109,7 +133,7 @@ namespace base64
 			{
 				read -= 3;
 				write -= 4;
-				encode_triplet(read, write);
+				encode_triplet(read, write, c);
 			}
 		} else
 			last_triplets = triplets ? triplets : 0;
@@ -124,44 +148,47 @@ namespace base64
 			triplet[1] = read[1];
 			triplet[2] = read[2];
 
-			encode_triplet(triplet, write);
+			encode_triplet(triplet, write, c);
 		}
 
 		return result;
 	}
 
-	static bool initialised = false;
-	static std::uint8_t reverse_table[256];
-
 	static inline void decode_quartet(
 		std::uint8_t const * read,
-		std::uint8_t * write)
+		std::uint8_t * write,
+		Configuration const& c)
 	{
-		assert((read[0] | read[1] | read[2]) < 64);
+		assert(~c.reverse_table[read[0]]);
+		assert(~c.reverse_table[read[1]]);
+		assert(~c.reverse_table[read[2]]);
 
-		write[0] = (reverse_table[read[0]] << 2) | (reverse_table[read[1]] >> 4);
-		write[1] = (reverse_table[read[1]] << 4) | (reverse_table[read[2]] >> 2);
-		write[2] = (reverse_table[read[2]] << 6) | reverse_table[read[3]];
+		write[0] = (c.reverse_table[read[0]] << 2) | (c.reverse_table[read[1]] >> 4);
+		write[1] = (c.reverse_table[read[1]] << 4) | (c.reverse_table[read[2]] >> 2);
+		write[2] = (c.reverse_table[read[2]] << 6) | c.reverse_table[read[3]];
 	}
 
 	static inline std::size_t decode_last_quartet(
 		std::uint8_t const * read,
-		std::uint8_t * write)
+		std::uint8_t * write,
+		Configuration const& c)
 	{
-		assert((read[0] | read[1] | read[2]) < 64);
+		assert(~c.reverse_table[read[0]]);
+		assert(~c.reverse_table[read[1]]);
+		assert(~c.reverse_table[read[2]]);
 
-		write[0] = (reverse_table[read[0]] << 2) | (reverse_table[read[1]] >> 4);
-		if(read[2] == padding)
+		write[0] = (c.reverse_table[read[0]] << 2) | (c.reverse_table[read[1]] >> 4);
+		if(read[2] == c.padding)
 		{
-			write[1] = reverse_table[read[1]] << 4;
+			write[1] = c.reverse_table[read[1]] << 4;
 			return 1;
 		} else
 		{
-			write[1] = (reverse_table[read[1]] << 4) | (reverse_table[read[2]] >> 2);
-			if(read[3] == padding)
-				write[2] = reverse_table[read[2]] << 6;
+			write[1] = (c.reverse_table[read[1]] << 4) | (c.reverse_table[read[2]] >> 2);
+			if(read[3] == c.padding)
+				write[2] = c.reverse_table[read[2]] << 6;
 			else
-				write[2] = (reverse_table[read[2]] << 6) | reverse_table[read[3]];
+				write[2] = (c.reverse_table[read[2]] << 6) | c.reverse_table[read[3]];
 
 			return 2;
 		}
@@ -170,12 +197,12 @@ namespace base64
 	void * decode(
 		void const * input,
 		std::size_t size,
-		void * output)
+		void * output,
+		Configuration const& c)
 	{
 		assert(input != nullptr);
 		assert(output != nullptr);
 
-		precompute();
 
 		if(size & 3)
 			throw std::runtime_error("size is not a multiple of 4");
@@ -187,21 +214,20 @@ namespace base64
 		if(quartets)
 			while(--quartets)
 			{
-				decode_quartet(read, write);
+				decode_quartet(read, write, c);
 				read += 4;
 				write += 3;
 			}
 
-		return write + decode_last_quartet(read, write);
+		return write + decode_last_quartet(read, write, c);
 	}
 
 	void * decode_in_place(
 		void * input,
-		std::size_t size)
+		std::size_t size,
+		Configuration const& c)
 	{
 		assert(input != nullptr);
-
-		precompute();
 
 		if(size & 3)
 			throw std::runtime_error("size is not a multiple of 4");
@@ -218,7 +244,7 @@ namespace base64
 		std::uint8_t triplet[3];
 		for(std::size_t i = lower_quartets; i--;)
 		{
-			decode_quartet(read, triplet);
+			decode_quartet(read, triplet, c);
 			write[0] = triplet[0];
 			write[1] = triplet[1];
 			write[2] = triplet[2];
@@ -231,14 +257,14 @@ namespace base64
 		{
 			for(std::size_t i = quartets - 4; i--;)
 			{
-				decode_quartet(read, write);
+				decode_quartet(read, write, c);
 				read += 4;
 				write += 3;
 			}
-			return write + decode_last_quartet(read, write);
+			return write + decode_last_quartet(read, write, c);
 		} else
 		{
-			std::size_t writes = decode_last_quartet(read, triplet);
+			std::size_t writes = decode_last_quartet(read, triplet, c);
 			void * const result = write + writes;
 
 			for(std::size_t i = writes+1; i--;)
@@ -246,16 +272,5 @@ namespace base64
 
 			return result;
 		}
-	}
-
-	void precompute()
-	{
-		if(initialised)
-			return;
-
-		for(std::size_t i = 0; i < sizeof(table); i++)
-			reverse_table[table[i]] = i;
-
-		initialised = true;
 	}
 }
