@@ -25,10 +25,42 @@ namespace base64
 		}
 	}
 
+	Configuration::Configuration(
+		char c63,
+		char c64,
+		char padding)
+	{
+		this->padding = padding;
+
+		// set all unused fields to invalid.
+		for(std::size_t i = 256; i--;)
+			reverse_table[i] = 255;
+
+		static char const * alphabet =
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			"abcdefghijklmnopqrstuvwxyz"
+			"0123456789";
+
+		for(std::size_t i = 0; i < 62; i++)
+		{
+			table[i] = alphabet[i];
+			reverse_table[table[i]] = i;
+			assert(alphabet[i]);
+		}
+
+		table[62] = c63;
+		reverse_table[std::uint8_t(c63)] = 62;
+		assert(c63);
+
+		table[63] = c64;
+		reverse_table[std::uint8_t(c64)] = 63;
+		assert(c64);
+	}
+
+
 	Configuration const Configuration::default_configuration {
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-		"abcdefghijklmnopqrstuvwxyz"
-		"0123456789+/",
+		'+',
+		'/',
 		'='
 	};
 

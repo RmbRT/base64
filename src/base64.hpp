@@ -26,6 +26,19 @@ namespace base64
 			char const * alphabet,
 			char padding);
 
+		/** Creates a configuration with the requested alphabet and padding character.
+			Uses the standard alphabet (uppercase, lowercase, digits) with custom 63-th and 64-th character and custom padding.
+		@param[in] c63:
+			The 63-th character in the configuration's alphabet.
+		@param[in] c64:
+			The 64-th character in the configuration's alphabet.
+		@param[in] padding:
+			The configuration's padding character. */
+		Configuration(
+			char c62,
+			char c63,
+			char padding);
+
 		/** The default alphabet. */
 		static Configuration const default_configuration;
 
