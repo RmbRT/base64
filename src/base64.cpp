@@ -101,7 +101,7 @@ namespace base64
 		else
 		{
 			// 6-7.
-			write[1] = c.table[std::uint8_t((read[0] & 3) << 4) | (read[1]>>4)];
+			write[1] = c.table[std::uint8_t((read[0] & 3) << 4)];
 			// padding.
 			write[2] = c.padding;
 		}
@@ -194,6 +194,7 @@ namespace base64
 		assert(~c.reverse_table[read[0]]);
 		assert(~c.reverse_table[read[1]]);
 		assert(~c.reverse_table[read[2]]);
+		assert(~c.reverse_table[read[3]]);
 
 		write[0] = (c.reverse_table[read[0]] << 2) | (c.reverse_table[read[1]] >> 4);
 		write[1] = (c.reverse_table[read[1]] << 4) | (c.reverse_table[read[2]] >> 2);
@@ -208,6 +209,7 @@ namespace base64
 		assert(~c.reverse_table[read[0]]);
 		assert(~c.reverse_table[read[1]]);
 		assert(~c.reverse_table[read[2]]);
+		assert(~c.reverse_table[read[3]]);
 
 		write[0] = (c.reverse_table[read[0]] << 2) | (c.reverse_table[read[1]] >> 4);
 		if(read[2] == c.padding)
@@ -218,11 +220,14 @@ namespace base64
 		{
 			write[1] = (c.reverse_table[read[1]] << 4) | (c.reverse_table[read[2]] >> 2);
 			if(read[3] == c.padding)
+			{
 				write[2] = c.reverse_table[read[2]] << 6;
+				return 2;
+			}
 			else
 				write[2] = (c.reverse_table[read[2]] << 6) | c.reverse_table[read[3]];
 
-			return 2;
+			return 3;
 		}
 	}
 
