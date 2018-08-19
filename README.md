@@ -12,7 +12,7 @@ These are the most important functions in the library:
 
 ## License
 
-This library is licensed under the GNU General Public License, version 3 or newer. A copy can be found in the file `LICENSE`.
+This library is licensed under the GNU Affero General Public License, version 3 or newer. A copy can be found in the file `LICENSE`.
 
 ## Installation
 
